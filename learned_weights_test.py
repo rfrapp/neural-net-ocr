@@ -47,7 +47,7 @@ for i, letter in enumerate(create_mat.LETTERS):
 
 
 	for j, image in enumerate(X):
-		print("Letter: %s, class: %s" % (letter, i))
+		# print("Letter: %s, class: %s" % (letter, i))
 		y.append(i)
 		input_matrix = numpy.matrix(image).reshape((num_inputs, 1))
 		nn.add_training_row(input_matrix=input_matrix,
