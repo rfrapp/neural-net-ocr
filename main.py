@@ -77,7 +77,7 @@ for i, letter in enumerate(create_mat.LETTERS):
 iterations = []
 costs = []
 
-for i in range(100):
+for i in range(100000):
 	if i > 0 and i % 10 == 0:
 		save_weights(nn)
 	print("Iteration", (i + 1))

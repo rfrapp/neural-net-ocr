@@ -21,7 +21,7 @@ def display_image(imgdata):
 
 	return s
 
-weights = scipy.io.loadmat("learned_weights4.mat")
+weights = scipy.io.loadmat("learned_weights5.mat")
 Theta1 = numpy.matrix(weights['w1'])
 Theta2 = numpy.matrix(weights['w2'])
 
@@ -72,12 +72,12 @@ for i in range(num_examples):
 
 	if result == target:
 
-		if target != testing_target:
-			if display_img:
-				testing_target = target
-				s = display_image(nn.input_matrices[i].reshape(create_mat.COL_SIZE, create_mat.COL_SIZE))
-				if s == "q":
-					break
+		# if target != testing_target:
+			# if display_img:
+				# testing_target = target
+				# s = display_image(nn.input_matrices[i].reshape(create_mat.COL_SIZE, create_mat.COL_SIZE))
+				# if s == "q":
+					# break
 				# elif s == "c":
 				# 	display_img = False
 
