@@ -6,20 +6,15 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.mlab as mlab
 import create_mat
+import time
 
-def display_image(imgdata):
-	fig = plt.figure()
-
-	ax0 = fig.add_subplot(221)
-	ax0.axis('off')
-	ax0.imshow(imgdata, cmap='gray')
-
-	plt.tight_layout()
-	plt.show(block=False)
-	s = input("Press Enter to close...")
-	plt.close()
-
-	return s
+WEIGHT_SAVE_FILE = "learned_weights_shift_sgd_reg8.mat"
+LOAD_SAVE = True
+LEARNING_RATE = 0.1
+MOMENTUM = 0.1
+NUM_EPOCHS = 5
+BATCH_SIZE = 50
+REGULARIZATION = 0.2
 
 def save_weights(nn):
 	weight_dict = {}
@@ -27,7 +22,7 @@ def save_weights(nn):
 		k = "w%d" % (i + 1)
 		weight_dict[k] = w
 
-	scipy.io.savemat("learned_weights5.mat", weight_dict)
+	scipy.io.savemat(WEIGHT_SAVE_FILE, weight_dict)
 	print("Saved weights.")
 
 def plot_cost(iterations, costs):
@@ -37,23 +32,25 @@ def plot_cost(iterations, costs):
 	s = input("Press Enter to close...")
 	plt.close()
 
-weights = scipy.io.loadmat("learned_weights5.mat")
-Theta1 = numpy.matrix(weights['w1'])
-Theta2 = numpy.matrix(weights['w2'])
-
 num_inputs = create_mat.COL_SIZE ** 2
-# hidden_size = int(len(create_mat.LETTERS) * 2.5)
-hidden_size = 36
 output_size = len(create_mat.LETTERS)
+hidden_size = 100
 
 nn = NeuralNetwork.NeuralNetwork(input_size=num_inputs, output_size=output_size)
-# nn.append_layer(rows=hidden_size, cols=num_inputs + 1,
-# 	            is_output=False)
-# nn.append_layer(rows=output_size, cols=hidden_size + 1, is_output=True)
-nn.append_layer(rows=hidden_size, cols=num_inputs + 1,
-	            is_output=False, weights=Theta1)
-nn.append_layer(rows=output_size, cols=hidden_size + 1, is_output=True,
-				weights=Theta2)
+
+if LOAD_SAVE:
+	weights = scipy.io.loadmat(WEIGHT_SAVE_FILE)
+	Theta1 = numpy.matrix(weights['w1'])
+	Theta2 = numpy.matrix(weights['w2'])
+
+	nn.append_layer(rows=hidden_size, cols=num_inputs + 1,
+		            is_output=False, weights=Theta1)
+	nn.append_layer(rows=output_size, cols=hidden_size + 1, is_output=True,
+					weights=Theta2)
+else:
+	nn.append_layer(rows=hidden_size, cols=num_inputs + 1,
+		            is_output=False)
+	nn.append_layer(rows=output_size, cols=hidden_size + 1, is_output=True)
 
 num_examples = 0
 y = []
@@ -64,26 +61,67 @@ for i, letter in enumerate(create_mat.LETTERS):
 	X = numpy.matrix(X)
 	output_matrix = numpy.matrix(numpy.zeros((output_size, 1)))
 	output_matrix[(i, 0)] = 1.
+	num_examples += X.shape[0]
 
 	for j, image in enumerate(X):
 		y.append(i)
 		input_matrix = numpy.matrix(image).reshape((num_inputs, 1))
 		nn.add_training_row(input_matrix=input_matrix,
 			                output_matrix=output_matrix)
-		num_examples += 1
-
-# NeuralNetwork.NeuralNetwork_gradient_check(nn, 1e-4)
 
 iterations = []
 costs = []
+cost_raised = 0
+cost_slow = 0
+factor = 0.1
+cost_increased = 0
+cost_decreased = 0
 
-for i in range(100000):
+print("Initial learning rate: %f" % LEARNING_RATE)
+
+for i in range(NUM_EPOCHS):
+	# if i > 0 and i % 100 == 0:
+	# 	LEARNING_RATE *= 0.75
+	# 	print("Learning rate changed to: %f" % LEARNING_RATE)
+
 	if i > 0 and i % 10 == 0:
 		save_weights(nn)
-	print("Iteration", (i + 1))
-	cost = nn.backward_propagate(learning_rate=0.007)
+	print("Iteration", (i + 1), "Time:", time.time())
+	cost = nn.backward_propagate(learning_rate=LEARNING_RATE,
+								 batch_size=BATCH_SIZE, momentum=MOMENTUM,
+								 reg_lambda=REGULARIZATION)
 	iterations.append(i + 1)
 	costs.append(cost)
+
+	if len(costs) >= 2:
+		if cost > costs[-2]:
+			cost_raised += 1
+			cost_slow = 0
+		if cost_raised > 2:
+			LEARNING_RATE *= (1 - factor)
+			cost_decreased += 1
+			cost_increased = 0
+			cost_raised = 0
+			print("Lowered learning rate to %f." % LEARNING_RATE)
+
+		# if cost_decreased % 2 == 0:
+		# 	factor *= 0.75
+		# 	print("Factor decreased.")
+
+	if len(costs) >= 2:
+		if costs[-2] - cost <= 1e-3:
+			cost_slow += 1
+			# cost_raised = 0
+		if cost_slow > 2:
+			LEARNING_RATE *= (1 + factor)
+			cost_increased += 1
+			cost_decreased = 0
+			cost_slow = 0
+			print("Raised learning rate to %f." % LEARNING_RATE)
+
+		# if cost_increased % 5 == 0:
+		# 	factor *= 1.75
+		# 	print("Factor increased.")
 
 with open("cost_per_iteration2.txt", "w") as f:
 	for i in range(len(iterations)):
@@ -91,41 +129,4 @@ with open("cost_per_iteration2.txt", "w") as f:
 
 save_weights(nn)
 plot_cost(iterations, costs)
-
-num_correct = 0
-num_incorrect = 0
-report = {}
-display_img = True
-testing_target = -1
-
-for i in range(num_examples):
-	result = nn.predict(i)
-	target = y[i]
-
-	# print("Result: %d, target: %d" % (result, target))
-
-	if report.get(target) is None:
-		report[target] = {"correct": 0, "incorrect": 0}
-
-
-	if result == target:
-
-		# if target != testing_target:
-		# 	if display_img:
-		# 		testing_target = target
-		# 		s = display_image(nn.input_matrices[i].reshape(create_mat.COL_SIZE, create_mat.COL_SIZE))
-		# 		if s == "q":
-		# 			break
-		# 		# elif s == "c":
-		# 		# 	display_img = False
-
-		num_correct += 1
-		report[target]["correct"] += 1
-	else:
-		num_incorrect += 1
-		report[target]["incorrect"] += 1
-
-print("Correct: %d, incorrect: %d" % (num_correct, num_incorrect))
-pprint(report)
-print("Accuracy: %.2f%%" % (num_correct / num_examples * 100))
-
+print("Final cost: %f" % costs[-1])

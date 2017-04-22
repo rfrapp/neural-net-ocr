@@ -2,6 +2,15 @@
 import numpy, math, copy, random, sys
 from scipy.special import expit
 import scipy.io
+import scipy.optimize
+import sklearn.utils
+
+
+def softmax(w):
+    e = numpy.exp(w - numpy.amax(w))
+    dist = e / numpy.sum(e)
+    return dist
+
 
 class NeuralNetwork(object):
     def __init__(self, input_size, output_size,
@@ -13,6 +22,8 @@ class NeuralNetwork(object):
         self.input_matrices = []
         self.output_matrices = []
         self.activations = []
+        self.sizes = []
+        self.initial_weights = []
 
         # Add the first layer to the network.
         empty_activation = numpy.matrix([1] + ([0] * input_size))
@@ -21,6 +32,7 @@ class NeuralNetwork(object):
 
         if not activation_function:
             self.activation_function = lambda z: expit(z)
+            # self.activation_function =
             # self.activation_function = lambda z: 1 / (1 + numpy.exp(-z))
             # self.activation_function = lambda z: math.exp(-numpy.logaddexp(0, -z))
         else:
@@ -47,7 +59,6 @@ class NeuralNetwork(object):
         else:
             self.dcost_function = dcost_function
         self.dcost_function = numpy.vectorize(self.dcost_function)
-
 
     def add_training_row(self, input_matrix, output_matrix):
         '''Adds a training example to the network.
@@ -94,14 +105,16 @@ class NeuralNetwork(object):
         if weights is not None and not isinstance(weights, numpy.matrix):
             raise ValueError("Input weights must be of type numpy.matrix")
 
+        self.sizes.append((rows, cols))
+
         prev_m, _ = self.activations[-1].shape
 
         if prev_m == cols:
             if weights is None:
-                rand_values = numpy.random.uniform(-0.12, 0.12, (rows, cols))
+                rand_values = numpy.random.uniform(-0.2, 0.2, (rows, cols))
                 weights = numpy.reshape(rand_values, (rows, cols))
-            # print("weights:", weights)
             self.weights.append(weights)
+            self.initial_weights.append(weights)
             if not is_output:
                 empty_activation = numpy.matrix([1.] + ([0.] * (rows)))
                 empty_activation = empty_activation.reshape(rows + 1, 1)
@@ -113,13 +126,22 @@ class NeuralNetwork(object):
         else:
             raise ValueError("Input weights must have %d rows" % (prev_m))
 
+    def shuffle_examples(self):
+        self.input_matrices, self.output_matrices = sklearn.utils.shuffle(self.input_matrices, self.output_matrices)
+
     def forward_propagate(self):
         """Propagates the input throught the network. A prerequisite for this
            function call is that you've already called set_input() to set
            the desired input to propagate through the network."""
         for i, weights in enumerate(self.weights):
             z = weights * self.activations[i]
-            a = self.activation_function(z)
+            self.z = z
+            if i != len(self.weights) - 1:
+                a = self.activation_function(z)
+            else:
+                a = softmax(z)
+            self.a = a
+            self.w = weights
             m, _ = a.shape
 
             if i + 1 < len(self.weights):
@@ -129,7 +151,7 @@ class NeuralNetwork(object):
                 a = a.reshape((m, 1))
                 self.activations[i + 1] = a
 
-    def backward_propagate(self, learning_rate=0.5):
+    def backward_propagate(self, learning_rate=0.5, batch_size=None):
         '''Performs backpropagation with all of the current training data. The
                weights are updated using Gradient Descent with the input
                learning rate.
@@ -139,6 +161,10 @@ class NeuralNetwork(object):
                                  weight = weight - learning_rate * gradient
            Returns:
                 The normalized cost before backprop was run on this network.'''
+        if batch_size is None:
+            batch_size = len(self.input_matrices)
+        else:
+            self.shuffle_examples()
 
         num_layers = len(self.activations)
         a_m, _ = self.activations[num_layers - 1].shape
@@ -147,92 +173,77 @@ class NeuralNetwork(object):
 
         costJ = 0.0
 
-        for k in range(len(self.input_matrices)):
-            self.set_input(k)
-            self.forward_propagate()
+        for k in range(0, len(self.input_matrices), batch_size):
+            for j in range(k, k + batch_size):
+                self.set_input(j)
+                self.forward_propagate()
 
-            # Compute the cost for this row of data.
-            k_sum = 0.0
-            for q in range(self.output_size):
-                y_out = self.output_matrices[k][(q, 0)]
-                a_out = self.activations[-1][(q, 0)]
+                # Compute the cost for this row of data.
+                j_sum = 0.0
+                for q in range(self.output_size):
+                    y_out = self.output_matrices[j][(q, 0)]
+                    a_out = self.activations[-1][(q, 0)]
+                    c = 0.0
+                    # if a_out == 0. or a_out == 1.:
+                    #     print("Something's wrong. Saving file")
+                    #     print(self.activations[-1])
+                    #     raise ValueError("You done goofed.")
+                    try:
+                        c = -y_out * math.log(a_out) - (1 - y_out) * math.log(1 - a_out)
+                        j_sum += c
+                    except:
+                        print(self.activations[-1])
+                        raise ValueError("You done goofed")
+                costJ += j_sum
 
-                if a_out == 0:
-                    print("Something's wrong. Saving file")
-                    d = {'a': self.a, 'w': self.w}
-                    scipy.io.savemat("zwdebug.mat", d)
-                c = -y_out * math.log(a_out) - (1 - y_out) * math.log(1 - a_out)
-                k_sum += c
-            costJ += k_sum
+                # Calculate the error with respect to the output of each node in
+                # the last layer.
+                a_values = self.activations[-1]
+                dA = a_values - self.output_matrices[j]
+                delta[-1] = dA
 
-            # Calculate the error with respect to the output of each node in
-            # the last layer.
-            a_values = self.activations[-1]
-            dA = self.dcost_function(self.output_matrices[k], a_values)
-
-            delta[-1] = dA
-
-            if Delta[-1] is None:
-                Delta[-1] = delta[-1] * self.activations[-2].T
-            else:
-                Delta[-1] += delta[-1] * self.activations[-2].T
-
-            # Calculate delta values for each hidden layer (this of course
-            # excludes the input layer).
-            for l in range(num_layers - 2, 0, -1):
-
-                # Calculate the change in the activation function for each
-                # node in this layer with respect to the input for the
-                # activation function.
-                activ_m = self.dactivation_function(self.activations[l])
-                activ_m = activ_m[1:]
-
-                # Calculate the total change in the cost function with respect
-                # to each of the nodes from the current layer (this is the
-                # "self.weights[l] * delta[l + 1]" portion. This expression
-                # sums up the total errors for each node that a node in
-                # the current layer connects to), then multiply it by the above
-                # term to get the delta for this layer.
-                weights = self.weights[l].T[1:]
-                delta[l] = numpy.multiply(weights * delta[l + 1], activ_m)
-
-                # Calculate the gradient for each weight in this layer by
-                # multiplying the activation value of the node which this weight
-                # connects to in the previous layer with the error in the
-                # current layer.
-                if Delta[l] is None:
-                    Delta[l] = delta[l] * self.activations[l - 1].T
+                if Delta[-1] is None:
+                    Delta[-1] = delta[-1] * self.activations[-2].T
                 else:
-                    Delta[l] += delta[l] * self.activations[l - 1].T
+                    Delta[-1] += delta[-1] * self.activations[-2].T
 
-        # Normalize the error.
-        for i in range(1, num_layers - 1):
-            Delta[i] = (1 / len(self.input_matrices)) * Delta[i]
+                # Calculate delta values for each hidden layer (this of course
+                # excludes the input layer).
+                for l in range(num_layers - 2, 0, -1):
+                    # Calculate the change in the activation function for each
+                    # node in this layer with respect to the input for the
+                    # activation function.
+                    activ_m = self.dactivation_function(self.activations[l])
+                    activ_m = activ_m[1:]
 
-        # Update the weights.
-        for i in range(1, len(Delta)):
-            self.weights[i - 1] -= learning_rate * Delta[i]
+                    # Calculate the total change in the cost function with respect
+                    # to each of the nodes from the current layer (this is the
+                    # "self.weights[l] * delta[l + 1]" portion. This expression
+                    # sums up the total errors for each node that a node in
+                    # the current layer connects to), then multiply it by the above
+                    # term to get the delta for this layer.
+                    weights = self.weights[l].T[1:]
+                    delta[l] = numpy.multiply(weights * delta[l + 1], activ_m)
+
+                    # Calculate the gradient for each weight in this layer by
+                    # multiplying the activation value of the node which this weight
+                    # connects to in the previous layer with the error in the
+                    # current layer.
+                    if Delta[l] is None:
+                        Delta[l] = delta[l] * self.activations[l - 1].T
+                    else:
+                        Delta[l] += delta[l] * self.activations[l - 1].T
+
+                # Normalize the error.
+                for i in range(1, num_layers - 1):
+                    Delta[i] = (1 / len(self.input_matrices)) * Delta[i]
+
+                # Update the weights.
+                for i in range(len(self.weights)):
+                    self.weights[i] -= learning_rate * Delta[i + 1]
 
         # Return a normalized cost.
         return costJ / len(self.input_matrices)
-
-    def cost(self):
-        '''Returns the total cost of the training data.'''
-        J = 0.0
-
-        for i in range(len(self.input_matrices)):
-            k_sum = 0.0
-            self.set_input(i)
-            self.forward_propagate()
-
-            for k in range(self.output_size):
-                y_out = self.output_matrices[i][(k, 0)]
-                a_out = self.activations[-1][(k, 0)]
-                k_sum += -y_out * math.log(a_out) - (1 - y_out) * math.log(1 - a_out)
-
-            J += k_sum
-
-        return J / len(self.input_matrices)
 
     def predict(self, k):
         '''Predict the class of the kth training set.
@@ -245,6 +256,74 @@ class NeuralNetwork(object):
         self.set_input(k)
         self.forward_propagate()
 
-        output = [i for i in self.activations[-1].flat]
+        output = self.activations[-1].ravel().tolist()[0]
         return output.index(max(output))
 
+    def predict_new(self, input_matrix):
+        a = numpy.insert(input_matrix, 0, 1, axis=0)
+        self.activations[0] = a
+
+        self.forward_propagate()
+
+        output = self.activations[-1].ravel().tolist()[0]
+        return output.index(max(output))
+
+def NeuralNetwork_cost(nn):
+    '''Returns the total cost of the training data.'''
+    J = 0.0
+
+    for i in range(len(nn.input_matrices)):
+        k_sum = 0.0
+        nn.set_input(i)
+        nn.forward_propagate()
+
+        for k in range(nn.output_size):
+            y_out = nn.output_matrices[i][(k, 0)]
+            a_out = nn.activations[-1][(k, 0)]
+            k_sum += -y_out * math.log(a_out) - (1 - y_out) * math.log(1 - a_out)
+
+        J += k_sum
+
+    return J / len(nn.input_matrices)
+
+def reconstruct_weights(theta, sizes):
+    if isinstance(theta, numpy.matrix):
+        theta = theta.ravel().tolist()[0]
+
+    weights = []
+    p = 0
+    for row, col in sizes:
+        w = numpy.matrix(theta[p:p + row * col]).reshape((row, col))
+        weights.append(w)
+        p += row * col
+    return weights
+
+def collapse_weights(nn):
+    theta = []
+    for weights in nn.weights:
+        theta += weights.ravel().tolist()[0]
+    return theta
+
+def NeuralNetwork_gradient_check(nn, epsilon):
+    theta_list = collapse_weights(nn)
+    theta = numpy.matrix(theta_list).reshape((len(theta_list), 1))
+    numgrad = numpy.zeros((len(theta_list), 1))
+
+    for i, w in enumerate(theta):
+        print("%d out of %d" % (i, len(theta_list)))
+
+        theta[(i, 0)] -= epsilon
+        weights = reconstruct_weights(theta, nn.sizes)
+        nn.weights = weights
+        loss0 = NeuralNetwork_cost(nn)
+
+        theta[(i, 0)] += 2 * epsilon
+        weights = reconstruct_weights(theta, nn.sizes)
+        nn.weights = weights
+        loss1 = NeuralNetwork_cost(nn)
+
+        theta[(i, 0)] = 0
+
+        numgrad[(i, 0)] = (loss1 - loss0) / (2 * epsilon)
+
+    print(numgrad)
