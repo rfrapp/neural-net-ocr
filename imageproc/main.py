@@ -804,8 +804,8 @@ if __name__ == '__main__':
     imgdata = read_image_grayscale(filename)
     h, _ = imgdata.shape
     read_str = get_image_text(imgdata,
-                              show_img=True, show_edges=True, show_chars=False,
-                              show_quad=False, show_blobs=True,
+                              show_img=False, show_edges=False, show_chars=False,
+                              show_quad=False, show_blobs=False,
                               doc_area_factor=4,
                               blob_dist_factor=20,
                               blob_area_factor=10000,
