@@ -11,11 +11,14 @@ import scipy.misc
 import skimage.transform, skimage.draw
 import skimage.morphology, skimage.filters, skimage.draw, skimage.feature
 import cv2
+import os
 
 sys.path.append('..')
+sys.path.append('../..')
 import NeuralNetwork
 import create_mat
-import imageproc.blob as blob
+import neural_net_ocr
+import neural_net_ocr.imageproc.blob as blob
 
 def show_hold():
     plt.show(block=False)
@@ -672,7 +675,9 @@ def get_nn():
     output_size = len(create_mat.LETTERS)
     hidden_size = 100
     nn = NeuralNetwork.NeuralNetwork(input_size=num_inputs, output_size=output_size)
-    weights = scipy.io.loadmat('../learned_weights_shift_sgd_reg8.mat')
+    p = '/'.join(os.path.abspath(neural_net_ocr.__file__).split('/')[:-1])
+    filepath = os.path.join(p, 'learned_weights_shift_sgd_reg8.mat')
+    weights = scipy.io.loadmat(filepath)
     Theta1 = numpy.matrix(weights['w1'])
     Theta2 = numpy.matrix(weights['w2'])
     nn.append_layer(rows=hidden_size, cols=num_inputs + 1,
