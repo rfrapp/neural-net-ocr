@@ -730,25 +730,9 @@ def scan_document(imgdata, doc_quad):
     return scanned
 
 
-def get_image_text(imgdata,
-                   show_img=False, show_edges=False, show_quad=False,
-                   show_chars=False, show_blobs=False,
-                   doc_area_factor=4,
-                   blob_dist_factor=20,
-                   blob_area_factor=10000,
-                   blob_num_pixels=40,
-                   blob_aspect=0.1,
-                   line_thresh=10.):
-    if show_img:
-        display_image(imgdata)
-
-    imgdata /= 255
-    doc_quad = get_document_rect(imgdata, doc_area_factor,
-                                 show_edges, show_quad)
-
-    if doc_quad is None:
-        return
-
+def get_doc_text(imgdata, doc_quad, blob_dist_factor, blob_area_factor,
+                 blob_num_pixels, blob_aspect, line_thresh, show_blobs,
+                 show_chars):
     scanned = scan_document(imgdata, doc_quad)
 
     print("Detecting characters...")
@@ -790,6 +774,31 @@ def get_image_text(imgdata,
 
     return read_str
 
+def get_image_text(imgdata,
+                   show_img=False, show_edges=False, show_quad=False,
+                   show_chars=False, show_blobs=False,
+                   doc_area_factor=4,
+                   blob_dist_factor=20,
+                   blob_area_factor=10000,
+                   blob_num_pixels=40,
+                   blob_aspect=0.1,
+                   line_thresh_factor=20.):
+    h, w = imgdata.shape
+    line_thresh = h / line_thresh_factor
+    if show_img:
+        display_image(imgdata)
+
+    imgdata /= 255
+    doc_quad = get_document_rect(imgdata, doc_area_factor,
+                                 show_edges, show_quad)
+
+    if doc_quad is None:
+        return
+
+    return get_doc_text(imgdata, doc_quad, blob_dist_factor, blob_area_factor,
+                        blob_num_pixels, blob_aspect, line_thresh, show_blobs,
+                        show_chars)
+
 if __name__ == '__main__':
     filename = input("Image path: ")
     imgdata = read_image_grayscale(filename)
@@ -802,6 +811,6 @@ if __name__ == '__main__':
                               blob_area_factor=10000,
                               blob_num_pixels=40,
                               blob_aspect=0.1,
-                              line_thresh=h / 20)
+                              line_thresh_factor=20.)
     if read_str is not None:
         print("Text:", read_str)
