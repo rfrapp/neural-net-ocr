@@ -212,22 +212,7 @@ def detect_blobs(imgdata, dist_thresh, area_thresh, point_thresh, aspect_thresh)
                     min_i = i
 
             if min_dist <= dist_thresh:
-                # old_maxx = blobs[min_i].maxx
                 blobs[min_i].add_point(x, y)
-                # cb = blobs[min_i]
-                # if cb.maxx > old_maxx:
-                #     # Scan for a line of all 0s inbetween old_maxx and maxx.
-                #     split_j = -1
-
-                #     for j in range(old_maxx, cb.maxx + 1):
-                #         if sum(imgdata[cb.miny:cb.maxy + 1, j]) == 0:
-                #             split_j = j
-                #             break
-                #     if split_j != -1:
-                #         blobs[min_i].maxx = split_j - 1
-                #         blobs[min_i].num_points -= 1
-                #         b = blob.Blob(x, y)
-                #         blobs.append(b)
             else:
                 b = blob.Blob(x, y)
                 blobs.append(b)
@@ -646,6 +631,10 @@ def four_point_transform(image, pts):
 
 def group_blobs_ltor_utod(blobs, line_thresh):
     blobs = sorted(blobs, key=lambda a: a.miny)
+
+    if len(blobs) == 0:
+        return []
+
     max_h = max(blobs, key=lambda a: a.h)
     groups = []
     group = []
