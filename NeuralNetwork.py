@@ -261,10 +261,10 @@ class NeuralNetwork(object):
                 # Update the weights.
                 weight_deltas = []
                 for i in range(len(self.weights)):
-                    dw = self.weights[i] - learning_rate * Delta[i + 1]
+                    dw = -learning_rate * Delta[i + 1]
                     if prev_weight_deltas is not None:
                         dw += momentum * prev_weight_deltas[i]
-                    self.weights[i] = dw
+                    self.weights[i] = self.weights[i] + dw
                     weight_deltas.append(dw)
 
                 prev_weight_deltas = weight_deltas
@@ -283,10 +283,10 @@ class NeuralNetwork(object):
                     Delta[i] = (1 / batch_size) * Delta[i]
 
             for i in range(len(self.weights)):
-                dw = self.weights[i] - learning_rate * Delta[i + 1]
+                dw = -learning_rate * Delta[i + 1]
                 if prev_weight_deltas is not None:
                     dw += momentum * prev_weight_deltas[i]
-                self.weights[i] = dw
+                self.weights[i] = self.weights[i] + dw
 
         # Return a normalized cost.
         return costJ / len(self.input_matrices)

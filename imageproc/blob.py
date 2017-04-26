@@ -1,5 +1,5 @@
 
-import math
+import math, collections
 
 class Blob(object):
 	def __init__(self, x, y):
@@ -9,10 +9,29 @@ class Blob(object):
 		self.maxy = y
 		self.cx = x
 		self.cy = y
+
+		# self.point_neighbors = collections.defaultdict(list)
+		# self.point_neighbors[(x - 1, y)].append((x, y))
+		# self.point_neighbors[(x, y - 1)].append((x, y))
+		# self.point_neighbors[(x - 1, y - 1)].append((x, y))
+		# self.point_neighbors[(x + 1, y)].append((x, y))
+		# self.point_neighbors[(x, y + 1)].append((x, y))
+		# self.point_neighbors[(x + 1, y + 1)].append((x, y))
+		# self.point_neighbors[(x - 1, y + 1)].append((x, y))
+		# self.point_neighbors[(x + 1, y - 1)].append((x, y))
+
 		self.num_points = 0
 
 	def add_point(self, x, y):
-		old_maxx = self.maxx
+		# if len(self.point_neighbors[(x, y)]) >= 1:
+		# 	self.point_neighbors[(x - 1, y)].append((x, y))
+		# 	self.point_neighbors[(x, y - 1)].append((x, y))
+		# 	self.point_neighbors[(x - 1, y - 1)].append((x, y))
+		# 	self.point_neighbors[(x + 1, y)].append((x, y))
+		# 	self.point_neighbors[(x, y + 1)].append((x, y))
+		# 	self.point_neighbors[(x + 1, y + 1)].append((x, y))
+		# 	self.point_neighbors[(x - 1, y + 1)].append((x, y))
+		# 	self.point_neighbors[(x + 1, y - 1)].append((x, y))
 		self.minx = min(x, self.minx)
 		self.maxx = max(x, self.maxx)
 		self.miny = min(y, self.miny)
@@ -20,6 +39,8 @@ class Blob(object):
 		self.cx = (self.minx + self.maxx) / 2
 		self.cy = (self.miny + self.maxy) / 2
 		self.num_points += 1
+		# 	return True
+		# return False
 
 	def dist_to(self, x, y):
 		return math.sqrt((self.cx - x) ** 2 + (self.cy - y) ** 2)

@@ -198,10 +198,24 @@ def detect_blobs(imgdata, dist_thresh, area_thresh, point_thresh, aspect_thresh)
     blobs = []
     img_h, img_w = imgdata.shape
     ys, xs = imgdata.nonzero()
-
+    count = 0
     for x, y in zip(xs, ys):
-        pixel = imgdata[(y, x)]
-
+        # =====================================================================
+        # Check for contiguous chunks.
+        # =====================================================================
+        # if len(blobs) == 0:
+        #     blobs.append(blob.Blob(x, y))
+        # else:
+        #     found = False
+        #     for i, b in enumerate(blobs):
+        #         if b.add_point(x, y):
+        #             found = True
+        #             # print("here! %d" % count)
+        #             break
+        #     if not found:
+        #         # print("added new blob")
+        #         blobs.append(blob.Blob(x, y))
+        # =====================================================================
         if len(blobs) == 0:
             b = blob.Blob(x, y)
             blobs.append(b)
@@ -220,6 +234,8 @@ def detect_blobs(imgdata, dist_thresh, area_thresh, point_thresh, aspect_thresh)
                 b = blob.Blob(x, y)
                 blobs.append(b)
 
+
+
     good_blobs = []
     for b in blobs:
         if b.minx == 0 or b.maxx == img_w or b.miny == 0 or b.maxy == img_h:
@@ -232,6 +248,7 @@ def detect_blobs(imgdata, dist_thresh, area_thresh, point_thresh, aspect_thresh)
             good_blobs.append(b)
 
     return good_blobs
+    # return blobs
 
 
 def find_bounding_box(imgdata, bg_level, color_thresh, dist_thresh):
@@ -638,7 +655,7 @@ def group_blobs_ltor_utod(blobs, line_thresh):
     if len(blobs) == 0:
         return []
 
-    max_h = max(blobs, key=lambda a: a.h)
+    max_h = max(blobs, key=lambda a: a.h).h
     groups = []
     group = []
     min_cx = 0.0
@@ -650,7 +667,7 @@ def group_blobs_ltor_utod(blobs, line_thresh):
             min_cx = blob.cx
             min_cy = blob.cy
         else:
-            if abs(min_cy - blob.cy) <= line_thresh:
+            if abs(min_cy - blob.cy) <= max_h:
                 group.append(blob)
                 min_cx = min(blob.cx, min_cx)
                 min_cy = min(blob.cy, min_cy)
@@ -734,6 +751,7 @@ def get_doc_text(imgdata, doc_quad, blob_dist_factor, blob_area_factor,
     blobs = detect_blobs(1 - scanned, w / blob_dist_factor,
                          (h * w) / blob_area_factor, blob_num_pixels,
                          blob_aspect)
+    print(len(blobs))
     groups = group_blobs_ltor_utod(blobs, line_thresh)
 
     # Create a neural network for character recognition.
@@ -798,8 +816,8 @@ if __name__ == '__main__':
     imgdata = read_image_grayscale(filename)
     h, _ = imgdata.shape
     read_str = get_image_text(imgdata,
-                              show_img=False, show_edges=False, show_chars=False,
-                              show_quad=False, show_blobs=False,
+                              show_img=False, show_edges=False, show_chars=True,
+                              show_quad=False, show_blobs=True,
                               doc_area_factor=4,
                               blob_dist_factor=20,
                               blob_area_factor=10000,
